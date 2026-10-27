@@ -3,53 +3,41 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-/**
- * Controller Base da arquitetura MVC.
- * Fornece métodos utilitários para renderização de views, respostas JSON e redirecionamentos.
- */
 abstract class Controller
 {
-    /**
-     * Renderiza uma View PHP passando variáveis de forma segura.
-     *
-     * @param string $view Caminho relativo da view dentro de /app/Views (ex: 'media/upload')
-     * @param array<string, mixed> $data Dados disponibilizados para a view
-     * @param int $statusCode Código de estado HTTP (padrão: 200)
-     * @return Response
-     */
-    protected function render(string $view, array $data = [], int $statusCode = 200): Response
+    protected function render(string $view, array $data = [], ?string $layout = 'layouts/main'): Response
     {
-        $viewFile = BASE_PATH . '/app/Views/' . trim($view, '/') . '.php';
-
-        if (!file_exists($viewFile)) {
-            throw new \RuntimeException("Ficheiro de View não encontrado: {$viewFile}");
+        // Inject global settings into every view
+        $db = Database::getConnection();
+        $settingsRows = $db->query("SELECT setting_key, setting_value FROM settings")->fetchAll();
+        $settings = [];
+        foreach ($settingsRows as $row) {
+            $settings[$row['setting_key']] = $row['setting_value'];
         }
 
-        // Extrai variáveis no escopo isolado da view
-        extract($data, EXTR_SKIP);
+        $navItems = $db->query("SELECT * FROM navigation_items WHERE is_active = 1 ORDER BY sort_order ASC")->fetchAll();
 
-        ob_start();
-        require $viewFile;
-        $content = (string) ob_get_clean();
+        $data['siteSettings'] = $settings;
+        $data['navItems'] = $navItems;
+        $data['currentUser'] = Auth::user();
 
-        return new Response($content, $statusCode, [
-            'Content-Type' => 'text/html; charset=utf-8'
-        ]);
+        $html = View::render($view, $data, $layout);
+        return Response::html($html);
     }
 
-    /**
-     * Retorna uma resposta formatada em JSON.
-     */
-    protected function json(mixed $data, int $statusCode = 200): Response
+    protected function json(mixed $data, int $status = 200): Response
     {
-        return Response::json($data, $statusCode);
+        return Response::json($data, $status);
     }
 
-    /**
-     * Executa um redirecionamento HTTP seguro.
-     */
-    protected function redirect(string $url, int $statusCode = 302): Response
+    protected function redirect(string $url): Response
     {
-        return Response::redirect($url, $statusCode);
+        return Response::redirect($url);
+    }
+
+    protected function validateCsrf(Request $request): bool
+    {
+        $token = $request->post('_csrf');
+        return Session::validateCsrfToken($token);
     }
 }

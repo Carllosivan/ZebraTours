@@ -1,16 +1,6 @@
-# Zebra Tours Moçambique - Encaminhamento Apache / Nginx
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php [QSA,L]
+    RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
-
-# Segurança: Proibir navegação nos diretórios
-Options -Indexes
-
-# Bloquear ficheiros sensíveis
-<FilesMatch "(^\.env|composer\.(json|lock)|\.sqlite3?|\.db)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>

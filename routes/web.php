@@ -1,49 +1,67 @@
 <?php
-/**
- * Zebra Tours Moçambique - Definição de Rotas Web
- * Arquitetura PHP 8.2+ MVC
- */
-
 declare(strict_types=1);
 
+use App\Controllers\HomeController;
+use App\Controllers\PackageController;
+use App\Controllers\DestinationController;
+use App\Controllers\ServiceController;
+use App\Controllers\QuoteController;
+use App\Controllers\ContactController;
+use App\Controllers\PageController;
+use App\Controllers\AuthController;
+use App\Controllers\AdminController;
 use App\Controllers\MediaController;
-use App\Core\Response;
-use App\Core\Database;
 
 /** @var \App\Core\Router $router */
 
-$router->get('/', function() {
-    return new Response(
-        '<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Zebra Tours Moçambique</title></head><body>' .
-        '<h1>Zebra Tours Moçambique - PHP MVC Backend</h1>' .
-        '<p>O seu próximo destino começa aqui!</p>' .
-        '<p>Telefone / WhatsApp: +258 85 104 1826 | Maputo, Moçambique</p>' .
-        '<p><a href="/media">Aceder à Biblioteca Multimédia (CMS)</a> | <a href="/media/upload">Fazer Upload</a></p>' .
-        '</body></html>'
-    );
-});
+// 1. Public Pages
+$router->get('/', [HomeController::class, 'index']);
 
-// Módulo de Biblioteca Multimédia (MVC)
-$router->get('/media', [MediaController::class, 'index']);
-$router->get('/media/upload', [MediaController::class, 'create']);
-$router->post('/media/upload', [MediaController::class, 'store']);
-$router->post('/media/delete', [MediaController::class, 'delete']);
+// 2. Destinations
+$router->get('/destinos', [DestinationController::class, 'index']);
+$router->get('/destinos/{slug}', [DestinationController::class, 'show']);
 
-// Endpoints da API e Conteúdos
-$router->get('/pacotes', function() {
-    $db = Database::getConnection();
-    $packages = $db->query("SELECT * FROM packages WHERE status != 'rascunho'")->fetchAll();
-    return Response::json($packages);
-});
+// 3. Packages
+$router->get('/pacotes', [PackageController::class, 'index']);
+$router->get('/pacotes/{slug}', [PackageController::class, 'show']);
 
-$router->get('/destinos', function() {
-    $db = Database::getConnection();
-    $destinations = $db->query("SELECT * FROM destinations WHERE status = 'publicado'")->fetchAll();
-    return Response::json($destinations);
-});
+// 4. Services
+$router->get('/servicos', [ServiceController::class, 'index']);
+$router->get('/servicos/{slug}', [ServiceController::class, 'show']);
 
-$router->get('/api/settings', function() {
-    $db = Database::getConnection();
-    $settings = $db->query("SELECT * FROM settings")->fetchAll();
-    return Response::json($settings);
-});
+// 5. Quotation Requests
+$router->get('/cotacao', [QuoteController::class, 'create']);
+$router->post('/cotacao', [QuoteController::class, 'submit']);
+$router->get('/cotacao/sucesso', [QuoteController::class, 'success']);
+
+// 6. Contact & Inquiries
+$router->get('/contactos', [ContactController::class, 'index']);
+$router->post('/contactos', [ContactController::class, 'submit']);
+
+// 7. Editorial & Corporate Pages
+$router->get('/sobre-nos', [PageController::class, 'about']);
+$router->get('/faq', [PageController::class, 'faq']);
+$router->get('/termos', [PageController::class, 'terms']);
+$router->get('/privacidade', [PageController::class, 'privacy']);
+$router->get('/pagina/{slug}', [PageController::class, 'show']);
+
+// 8. Authentication (Admin)
+$router->get('/admin/login', [AuthController::class, 'showLogin']);
+$router->post('/admin/login', [AuthController::class, 'login']);
+$router->post('/admin/logout', [AuthController::class, 'logout']);
+
+// 9. Admin Area (Protected by auth middleware)
+$router->get('/admin', [AdminController::class, 'dashboard'], ['auth']);
+$router->get('/admin/pedidos', [AdminController::class, 'bookings'], ['auth']);
+$router->post('/admin/pedidos/{id}/estado', [AdminController::class, 'updateBookingStatus'], ['auth']);
+$router->get('/admin/pedidos/exportar-csv', [AdminController::class, 'exportCsv'], ['auth']);
+$router->get('/admin/pacotes', [AdminController::class, 'packages'], ['auth']);
+$router->get('/admin/destinos', [AdminController::class, 'destinations'], ['auth']);
+$router->get('/admin/media', [MediaController::class, 'index'], ['auth']);
+$router->get('/admin/media/upload', [MediaController::class, 'create'], ['auth']);
+$router->post('/admin/media/upload', [MediaController::class, 'store'], ['auth']);
+$router->post('/admin/media/delete', [MediaController::class, 'delete'], ['auth']);
+$router->get('/admin/paginas', [AdminController::class, 'pages'], ['auth']);
+$router->get('/admin/banners', [AdminController::class, 'banners'], ['auth']);
+$router->get('/admin/definicoes', [AdminController::class, 'settings'], ['auth']);
+$router->post('/admin/definicoes', [AdminController::class, 'updateSettings'], ['auth']);

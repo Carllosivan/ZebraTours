@@ -3,70 +3,92 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-/**
- * Representa a requisição HTTP recebida na arquitetura MVC.
- * Encapsula parâmetros de consulta (GET), corpo (POST) e ficheiros enviados (FILES).
- */
 class Request
 {
-    private string $method;
-    private string $uri;
-    private array $params;
-    private array $body;
+    private array $getParams;
+    private array $postParams;
+    private array $serverParams;
+    private array $cookies;
     private array $files;
+    private ?array $jsonBody = null;
 
     public function __construct()
     {
-        $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-        $rawUri = $_SERVER['REQUEST_URI'] ?? '/';
-        $parts = explode('?', $rawUri);
-        $this->uri = '/' . trim($parts[0], '/');
-        if ($this->uri === '//') {
-            $this->uri = '/';
-        }
-        $this->params = $_GET;
-        $this->body = $_POST;
+        $this->getParams = $_GET;
+        $this->postParams = $_POST;
+        $this->serverParams = $_SERVER;
+        $this->cookies = $_COOKIE;
         $this->files = $_FILES;
+
+        $contentType = $this->server('CONTENT_TYPE', '');
+        if (str_contains($contentType, 'application/json')) {
+            $raw = file_get_contents('php://input');
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $this->jsonBody = $decoded;
+            }
+        }
     }
 
     public function getMethod(): string
     {
-        return $this->method;
+        return strtoupper($this->server('REQUEST_METHOD', 'GET'));
     }
 
-    public function getUri(): string
+    public function getPath(): string
     {
-        return $this->uri;
+        $uri = $this->server('REQUEST_URI', '/');
+        $position = strpos($uri, '?');
+        if ($position !== false) {
+            $uri = substr($uri, 0, $position);
+        }
+        return '/' . trim($uri, '/');
     }
 
-    public function get(string $key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
-        return $this->params[$key] ?? $default;
+        return $this->getParams[$key] ?? $default;
     }
 
-    public function post(string $key, $default = null)
+    public function post(string $key, mixed $default = null): mixed
     {
-        return $this->body[$key] ?? $default;
+        if ($this->jsonBody !== null && array_key_exists($key, $this->jsonBody)) {
+            return $this->jsonBody[$key];
+        }
+        return $this->postParams[$key] ?? $default;
     }
 
-    /**
-     * Retorna os dados de um ficheiro enviado via $_FILES
-     */
+    public function all(): array
+    {
+        if ($this->jsonBody !== null) {
+            return array_merge($this->getParams, $this->jsonBody);
+        }
+        return array_merge($this->getParams, $this->postParams);
+    }
+
     public function file(string $key): ?array
     {
         return $this->files[$key] ?? null;
     }
 
-    /**
-     * Retorna todos os ficheiros enviados
-     */
-    public function files(): array
+    public function server(string $key, mixed $default = null): mixed
     {
-        return $this->files;
+        return $this->serverParams[$key] ?? $default;
     }
 
-    public function all(): array
+    public function isPost(): bool
     {
-        return array_merge($this->params, $this->body);
+        return $this->getMethod() === 'POST';
+    }
+
+    public function isGet(): bool
+    {
+        return $this->getMethod() === 'GET';
+    }
+
+    public function isAjax(): bool
+    {
+        return $this->server('HTTP_X_REQUESTED_WITH') === 'XMLHttpRequest' ||
+               str_contains($this->server('HTTP_ACCEPT', ''), 'application/json');
     }
 }

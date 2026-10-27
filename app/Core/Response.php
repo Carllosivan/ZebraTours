@@ -16,25 +16,32 @@ class Response
         $this->headers = $headers;
     }
 
-    public static function json($data, int $statusCode = 200): self
+    public static function html(string $html, int $status = 200): self
+    {
+        return new self($html, $status, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    public static function json(mixed $data, int $status = 200): self
     {
         return new self(
             json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-            $statusCode,
-            ['Content-Type' => 'application/json; charset=utf-8']
+            $status,
+            ['Content-Type' => 'application/json; charset=UTF-8']
         );
     }
 
-    public static function redirect(string $url, int $statusCode = 302): self
+    public static function redirect(string $url, int $status = 302): self
     {
-        return new self('', $statusCode, ['Location' => $url]);
+        return new self('', $status, ['Location' => $url]);
     }
 
     public function send(): void
     {
-        http_response_code($this->statusCode);
-        foreach ($this->headers as $name => $value) {
-            header("{$name}: {$value}");
+        if (!headers_sent()) {
+            http_response_code($this->statusCode);
+            foreach ($this->headers as $name => $value) {
+                header("{$name}: {$value}");
+            }
         }
         echo $this->content;
     }

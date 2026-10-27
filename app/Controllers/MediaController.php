@@ -6,32 +6,21 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Session;
 use App\Models\Media;
-use App\Services\UploadService;
-use Throwable;
-use InvalidArgumentException;
 
-/**
- * Controller responsável pela gestão e upload de ficheiros na Biblioteca Multimédia.
- * Intermedeia a View do CMS, as validações do UploadService e a persistência no Model Media.
- */
 class MediaController extends Controller
 {
     private Media $mediaModel;
-    private UploadService $uploadService;
 
-    public function __construct(?Media $mediaModel = null, ?UploadService $uploadService = null)
+    public function __construct()
     {
-        $this->mediaModel = $mediaModel ?? new Media();
-        $this->uploadService = $uploadService ?? new UploadService();
+        $this->mediaModel = new Media();
     }
 
-    /**
-     * Exibe a listagem dos ficheiros da Biblioteca Multimédia com filtros.
-     */
     public function index(Request $request): Response
     {
-        $category = $request->get('categoria');
+        $category = $request->get('categoria', 'todos');
         $page = max(1, (int) $request->get('pagina', 1));
         $perPage = 24;
         $offset = ($page - 1) * $perPage;
@@ -40,177 +29,83 @@ class MediaController extends Controller
         $totalItems = $this->mediaModel->countAll($category);
         $totalPages = (int) ceil($totalItems / $perPage);
 
-        return $this->render('media/index', [
-            'items'         => $items,
-            'currentCategory' => $category ?? 'todos',
-            'currentPage'   => $page,
-            'totalPages'    => $totalPages,
-            'totalItems'    => $totalItems,
-            'flashMessage'  => $this->getFlashMessage(),
-        ]);
+        return $this->render('admin/media/index', [
+            'pageTitle'       => 'Biblioteca Multimédia | Zebra Tours CMS',
+            'items'           => $items,
+            'currentCategory' => $category,
+            'currentPage'     => $page,
+            'totalPages'      => $totalPages,
+            'totalItems'      => $totalItems,
+            'successMessage'  => Session::getFlash('success'),
+            'errorMessage'    => Session::getFlash('error'),
+        ], 'layouts/admin');
     }
 
-    /**
-     * Exibe o formulário de upload de multimédia.
-     */
     public function create(Request $request): Response
     {
-        return $this->render('media/upload', [
-            'errors'  => [],
-            'success' => null,
-            'old'     => [],
-        ]);
+        return $this->render('admin/media/upload', [
+            'pageTitle' => 'Enviar Novo Ficheiro Multimédia | Zebra Tours CMS',
+            'errors'    => [],
+            'old'       => [],
+        ], 'layouts/admin');
     }
 
-    /**
-     * Processa a submissão do formulário de upload (POST).
-     * Suporta validação individual ou múltipla de ficheiros.
-     */
     public function store(Request $request): Response
     {
-        $errors = [];
-        $uploadedAssets = [];
+        $url = trim((string) $request->post('url', ''));
+        $title = trim((string) $request->post('title', ''));
+        $altText = trim((string) $request->post('alt_text', ''));
+        $category = trim((string) $request->post('category', 'geral'));
 
         $fileData = $request->file('media_file');
-        $title = (string) $request->post('title', '');
-        $altText = (string) $request->post('alt_text', '');
-        $categoryInput = (string) $request->post('category', '');
 
-        // 1. Validação da presença do ficheiro
-        if (!$fileData || empty($fileData['tmp_name'])) {
-            $errors[] = 'Por favor, selecione um ficheiro multimédia para efetuar o envio.';
-            return $this->render('media/upload', [
-                'errors'  => $errors,
-                'success' => null,
-                'old'     => $request->all(),
-            ], 422);
-        }
+        $filePath = '';
+        $filename = '';
 
-        try {
-            // 2. Processamento, validação MIME e gravação física segura pelo Serviço
-            $uploadResult = $this->uploadService->handle($fileData);
-
-            // 3. Montagem dos metadados para registo na base de dados
-            $recordData = [
-                'filename'      => $uploadResult['filename'],
-                'file_path'     => $uploadResult['file_path'],
-                'original_name' => $uploadResult['original_name'],
-                'mime_type'     => $uploadResult['mime_type'],
-                'file_size'     => $uploadResult['file_size'],
-                'title'         => $title !== '' ? $title : pathinfo($uploadResult['original_name'], PATHINFO_FILENAME),
-                'alt_text'      => $altText !== '' ? $altText : $title,
-                'category'      => $categoryInput !== '' ? $categoryInput : $uploadResult['category'],
-            ];
-
-            // 4. Sanitização e inserção na base de dados pelo Model
-            $newId = $this->mediaModel->create($recordData);
-            $recordData['id'] = $newId;
-            $uploadedAssets[] = $recordData;
-
-            // Se a requisição esperar JSON (ex: AJAX/Dropzone)
-            if ($this->wantsJson($request)) {
-                return $this->json([
-                    'success' => true,
-                    'message' => 'Ficheiro enviado e registado com sucesso na Biblioteca Multimédia!',
-                    'data'    => $recordData,
-                ], 201);
+        if ($fileData && !empty($fileData['tmp_name'])) {
+            $uploadDir = dirname(__DIR__, 2) . '/public/uploads/multimedia';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
             }
+            $ext = strtolower(pathinfo($fileData['name'], PATHINFO_EXTENSION));
+            $safeName = 'zt_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destination = $uploadDir . '/' . $safeName;
 
-            // Redirecionamento com mensagem de sucesso na View
-            $this->setFlashMessage('success', "Ficheiro '{$uploadResult['original_name']}' carregado e adicionado à biblioteca com sucesso!");
-            return $this->render('media/upload', [
-                'errors'  => [],
-                'success' => "Ficheiro '{$uploadResult['original_name']}' processado e guardado com sucesso!",
-                'asset'   => $recordData,
-                'old'     => [],
-            ], 200);
-
-        } catch (InvalidArgumentException $e) {
-            $errors[] = $e->getMessage();
-        } catch (Throwable $e) {
-            // Log do erro técnico internamente sem expor detalhes sensíveis
-            error_log('[MediaController Upload Error]: ' . $e->getMessage());
-            $errors[] = 'Ocorreu uma falha inesperada durante o processamento do ficheiro. Verifique o tamanho e o formato do arquivo e tente novamente.';
+            if (move_uploaded_file($fileData['tmp_name'], $destination)) {
+                $filePath = '/uploads/multimedia/' . $safeName;
+                $filename = $safeName;
+            }
+        } elseif (!empty($url)) {
+            $filePath = $url;
+            $filename = basename(parse_url($url, PHP_URL_PATH) ?: 'image.jpg');
         }
 
-        // Resposta em caso de erro
-        if ($this->wantsJson($request)) {
-            return $this->json([
-                'success' => false,
-                'errors'  => $errors,
-            ], 422);
+        if (empty($filePath)) {
+            Session::setFlash('error', 'Selecione um ficheiro ou indique um URL de imagem válido.');
+            return $this->redirect('/admin/media/upload');
         }
 
-        return $this->render('media/upload', [
-            'errors'  => $errors,
-            'success' => null,
-            'old'     => $request->all(),
-        ], 422);
+        $record = [
+            'filename'      => $filename,
+            'file_path'     => $filePath,
+            'original_name' => $title ?: $filename,
+            'mime_type'     => 'image/jpeg',
+            'file_size'     => 150000,
+            'title'         => $title ?: pathinfo($filename, PATHINFO_FILENAME),
+            'alt_text'      => $altText ?: $title,
+            'category'      => $category ?: 'geral',
+        ];
+
+        $this->mediaModel->create($record);
+        Session::setFlash('success', 'Ficheiro adicionado com sucesso à biblioteca!');
+        return $this->redirect('/admin/media');
     }
 
-    /**
-     * Remove com segurança o ficheiro físico do disco e o registo correspondente na base de dados.
-     */
-    public function delete(Request $request, array $params = []): Response
+    public function delete(Request $request, array $params): Response
     {
         $id = (int) ($params['id'] ?? $request->post('id', 0));
-
-        $media = $this->mediaModel->findById($id);
-        if (!$media) {
-            if ($this->wantsJson($request)) {
-                return $this->json(['success' => false, 'message' => 'Ficheiro multimédia não encontrado.'], 404);
-            }
-            return $this->redirect('/media?erro=nao_encontrado');
-        }
-
-        // 1. Eliminação física com proteção contra path traversal
-        $publicDir = defined('PUBLIC_PATH') ? PUBLIC_PATH : dirname(__DIR__, 2) . '/public';
-        $safeFilename = basename((string) $media['filename']);
-        $filePath = $publicDir . '/uploads/multimedia/' . $safeFilename;
-
-        if (file_exists($filePath) && is_file($filePath)) {
-            @unlink($filePath);
-        }
-
-        // 2. Eliminação do registo na base de dados
         $this->mediaModel->delete($id);
-
-        if ($this->wantsJson($request)) {
-            return $this->json(['success' => true, 'message' => 'Ficheiro removido com sucesso.']);
-        }
-
-        $this->setFlashMessage('success', 'Ficheiro multimédia removido com sucesso.');
-        return $this->redirect('/media');
-    }
-
-    /**
-     * Verifica se a requisição solicita retorno JSON.
-     */
-    private function wantsJson(Request $request): bool
-    {
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        $xReq = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
-        return str_contains($accept, 'application/json') || strtolower($xReq) === 'xmlhttprequest';
-    }
-
-    private function setFlashMessage(string $type, string $message): void
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            @session_start();
-        }
-        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
-    }
-
-    private function getFlashMessage(): ?array
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            @session_start();
-        }
-        if (isset($_SESSION['flash'])) {
-            $msg = $_SESSION['flash'];
-            unset($_SESSION['flash']);
-            return $msg;
-        }
-        return null;
+        Session::setFlash('success', 'Ficheiro eliminado da biblioteca.');
+        return $this->redirect('/admin/media');
     }
 }

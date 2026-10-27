@@ -5,13 +5,95 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 
+import http from 'http';
+import { spawn, execSync } from 'child_process';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
+const PHP_PORT = 8080;
+let phpServerProcess: any = null;
 
-// Basic middleware
+// Ensure PHP is available and start the PHP 8.2 MVC server
+function ensurePhpAndStart() {
+  try {
+    execSync('which php', { stdio: 'ignore' });
+  } catch (e) {
+    try {
+      console.log('[Zebra Tours] Installing PHP runtime non-interactively...');
+      execSync('DEBIAN_FRONTEND=noninteractive apt-get update -y && DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confold" php-cli php-sqlite3', { stdio: 'inherit' });
+    } catch (installErr) {
+      console.error('[Zebra Tours] Erro ao instalar PHP:', installErr);
+    }
+  }
+
+  try {
+    console.log(`[Zebra Tours] A iniciar servidor PHP 8.2 MVC na porta ${PHP_PORT}...`);
+    phpServerProcess = spawn('php', ['-S', `127.0.0.1:${PHP_PORT}`, '-t', 'public', 'public/index.php'], {
+      cwd: __dirname,
+      stdio: 'inherit',
+    });
+
+    phpServerProcess.on('error', (err: any) => {
+      console.error('[PHP Server Error]', err);
+    });
+
+    phpServerProcess.on('exit', (code: number) => {
+      console.log(`[PHP Server] Processo finalizado com código ${code}. A reiniciar em 2s...`);
+      setTimeout(ensurePhpAndStart, 2000);
+    });
+  } catch (err) {
+    console.error('[Falha ao iniciar processo PHP]', err);
+  }
+}
+
+// Start PHP server on boot
+ensurePhpAndStart();
+
+// Serve static assets directly
+app.use(express.static(path.join(__dirname, "public")));
+
+// Proxy middleware: Forward requests directly to PHP 8.2 MVC engine
+app.use((req, res, next) => {
+  // Let Vite internal assets pass if dev mode requests them
+  if (req.url.startsWith('/@vite') || req.url.startsWith('/@fs') || req.url.startsWith('/src/')) {
+    return next();
+  }
+
+  const options: http.RequestOptions = {
+    hostname: '127.0.0.1',
+    port: PHP_PORT,
+    path: req.url,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: req.headers.host || `localhost:${PORT}`,
+      'x-forwarded-for': req.ip || req.socket.remoteAddress,
+      'x-forwarded-proto': req.protocol,
+    },
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    // If PHP server is still initializing, proceed to fallback handlers
+    console.warn('[Proxy PHP Aviso - A aguardar servidor PHP...]', err.message);
+    next();
+  });
+
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    proxyReq.end();
+  } else {
+    req.pipe(proxyReq, { end: true });
+  }
+});
+
+// Fallback Middleware (for API or Vite if PHP is offline)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -1386,6 +1468,7 @@ async function startServer() {
       server: {
         middlewareMode: true,
         hmr: process.env.DISABLE_HMR !== 'true',
+        allowedHosts: true,
       },
       appType: 'spa',
     });

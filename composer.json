@@ -1,6 +1,6 @@
 {
   "name": "zebratours/mozambique",
-  "description": "Website Oficial e Plataforma de Gestão da Zebra Tours Moçambique em PHP 8.2 MVC",
+  "description": "Website Oficial e Plataforma de Gestão da Zebra Tours Moçambique em PHP 8.2 MVC com HTML & Tailwind CSS",
   "type": "project",
   "license": "Proprietary",
   "authors": [

@@ -1,18 +1,31 @@
 <?php
 /**
- * Zebra Tours Moçambique - Ponto de Entrada Front-Controller PHP
- * PHP 8.2+ MVC Architecture
+ * Zebra Tours Moçambique - Front Controller
+ * PHP 8.2+ MVC Architecture with HTML & Tailwind CSS
  */
 
 declare(strict_types=1);
 
-define('BASE_PATH', dirname(__DIR__));
-define('PUBLIC_PATH', __DIR__);
+// Error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
 
-// Autoloader PSR-4 simples caso o composer autoload não tenha sido gerado
+// Define constants
+defined('ROOT_PATH') || define('ROOT_PATH', dirname(__DIR__));
+defined('PUBLIC_PATH') || define('PUBLIC_PATH', __DIR__);
+
+// Serve existing static files in PHP CLI server
+if (php_sapi_name() === 'cli-server') {
+    $uri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+    if ($uri && $uri !== '/' && is_file(PUBLIC_PATH . $uri)) {
+        return false;
+    }
+}
+
+// PSR-4 Autoloader
 spl_autoload_register(function ($class) {
     $prefix = 'App\\';
-    $baseDir = BASE_PATH . '/app/';
+    $baseDir = ROOT_PATH . '/app/';
 
     $len = strlen($prefix);
     if (strncmp($prefix, $class, $len) !== 0) {
@@ -27,27 +40,29 @@ spl_autoload_register(function ($class) {
     }
 });
 
-use App\Core\Router;
-use App\Core\Request;
-use App\Core\Response;
-use App\Core\Database;
+// Require global helper functions
+require ROOT_PATH . '/app/Core/helpers.php';
 
+// Start session
+\App\Core\Session::start();
+
+// Initialize HTTP Request & Router
+$request = new \App\Core\Request();
+$router = new \App\Core\Router();
+
+// Load Web Routes
+require ROOT_PATH . '/routes/web.php';
+
+// Dispatch Request
 try {
-    $request = new Request();
-    $router = new Router();
-
-    // Carregar rotas
-    require BASE_PATH . '/routes/web.php';
-
     $response = $router->dispatch($request);
     $response->send();
 } catch (\Throwable $e) {
+    error_log('[Zebra Tours Error]: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
-    if (getenv('APP_ENV') === 'development') {
-        echo '<h1>500 - Erro no Servidor</h1>';
-        echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
-        echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
-    } else {
-        echo '<h1>500 - Erro no Servidor</h1><p>Pedimos desculpa, ocorreu um erro inesperado. Por favor tente mais tarde.</p>';
-    }
+    echo '<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><title>Erro no Servidor</title></head><body style="font-family:sans-serif;padding:2rem;text-align:center;">';
+    echo '<h1>Ocorreu um erro temporário no servidor</h1>';
+    echo '<p>Por favor, tente novamente dentro de instantes ou contacte o suporte da Zebra Tours.</p>';
+    echo '<a href="/">Voltar à Página Inicial</a>';
+    echo '</body></html>';
 }
