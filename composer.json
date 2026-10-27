@@ -1,0 +1,29 @@
+{
+  "name": "zebratours/mozambique",
+  "description": "Website Oficial e Plataforma de Gestão da Zebra Tours Moçambique em PHP 8.2 MVC",
+  "type": "project",
+  "license": "Proprietary",
+  "authors": [
+    {
+      "name": "Zebra Tours Moçambique",
+      "email": "info@zebratours.co.mz"
+    }
+  ],
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pdo_sqlite": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  }
+}
