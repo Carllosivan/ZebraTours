@@ -24,6 +24,7 @@
 
         <form action="/cotacao" method="POST" class="space-y-6">
             <?= csrf_field() ?>
+            <?= honeypot_field() ?>
 
             <!-- Package prefill badge if applicable -->
             <?php if (!empty($prefilledPackage)): ?>

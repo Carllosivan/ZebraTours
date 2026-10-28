@@ -103,9 +103,9 @@ class Package
         return $rows;
     }
 
-    public function findBySlug(string $slug): ?array
+    public function findBySlug(string $slug, bool $onlyPublic = true): ?array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT p.*,
                    d.name as destination_name,
                    d.country as destination_country,
@@ -113,7 +113,11 @@ class Package
             FROM packages p
             LEFT JOIN destinations d ON d.id = p.primary_destination_id
             WHERE p.slug = ?
-        ");
+        ";
+        if ($onlyPublic) {
+            $sql .= " AND p.status IN ('publicado', 'pendente_validacao')";
+        }
+        $stmt = $this->db->prepare($sql);
         $stmt->execute([$slug]);
         $pkg = $stmt->fetch();
         if (!$pkg) {

@@ -115,7 +115,7 @@ INSERT OR IGNORE INTO media_library (id, filename, file_path, original_name, mim
 (5, 'luxury-travel-hero.jpg', 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1600&q=80', 'luxury-travel-hero.jpg', 'image/jpeg', 420000, 'Viagem Premium e Aventura', 'Fotografia panorâmica de viagem de luxo no mundo', 'hero');
 
 -- 11. Definições Globais do Hero e Visual Editorial (geridas pelo CMS)
-INSERT OR REPLACE INTO settings (setting_key, setting_value, description) VALUES
+INSERT OR IGNORE INTO settings (setting_key, setting_value, description) VALUES
 ('hero_title', 'O mundo espera por si.', 'Título editorial de grande impacto da homepage'),
 ('hero_subtitle', 'Descubra novos destinos com experiências de viagem pensadas à sua medida.', 'Subtítulo refinado da homepage'),
 ('hero_cta_primary', 'Explorar Destinos', 'Texto do botão principal da homepage'),
@@ -126,6 +126,6 @@ INSERT OR REPLACE INTO settings (setting_key, setting_value, description) VALUES
 
 -- 12. Utilizadores com Papéis Diferenciados (Superadmin, Gestor Comercial, Editor, Atendimento)
 INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status) VALUES
-(2, 'Leonel Sitoe (Gestor Comercial)', 'comercial@zebratours.co.mz', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'gestor_comercial', 'ativo'),
-(3, 'Mariana Macamo (Editora de Conteúdo)', 'editorial@zebratours.co.mz', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'editor', 'ativo'),
-(4, 'Edson Nhantumbo (Atendimento)', 'atendimento@zebratours.co.mz', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'atendimento', 'ativo');
+(2, 'Leonel Sitoe (Gestor Comercial)', 'comercial@zebratours.co.mz', '!', 'gestor_comercial', 'inativo'),
+(3, 'Mariana Macamo (Editora de Conteúdo)', 'editorial@zebratours.co.mz', '!', 'editor', 'inativo'),
+(4, 'Edson Nhantumbo (Atendimento)', 'atendimento@zebratours.co.mz', '!', 'atendimento', 'inativo');

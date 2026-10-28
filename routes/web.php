@@ -16,6 +16,8 @@ use App\Controllers\MediaController;
 
 // 1. Public Pages
 $router->get('/', [HomeController::class, 'index']);
+$router->get('/sitemap.xml', [HomeController::class, 'sitemap']);
+$router->get('/robots.txt', [HomeController::class, 'robots']);
 
 // 2. Destinations
 $router->get('/destinos', [DestinationController::class, 'index']);
@@ -50,18 +52,26 @@ $router->get('/admin/login', [AuthController::class, 'showLogin']);
 $router->post('/admin/login', [AuthController::class, 'login']);
 $router->post('/admin/logout', [AuthController::class, 'logout']);
 
-// 9. Admin Area (Protected by auth middleware)
+// 9. Admin Area
+// General operations accessible to auth users (including editors)
 $router->get('/admin', [AdminController::class, 'dashboard'], ['auth']);
 $router->get('/admin/pedidos', [AdminController::class, 'bookings'], ['auth']);
 $router->post('/admin/pedidos/{id}/estado', [AdminController::class, 'updateBookingStatus'], ['auth']);
-$router->get('/admin/pedidos/exportar-csv', [AdminController::class, 'exportCsv'], ['auth']);
+$router->post('/admin/pedidos/{id}/notas', [AdminController::class, 'addBookingNote'], ['auth']);
+$router->post('/admin/pedidos/notas/{id}/eliminar', [AdminController::class, 'deleteBookingNote'], ['auth']);
 $router->get('/admin/pacotes', [AdminController::class, 'packages'], ['auth']);
 $router->get('/admin/destinos', [AdminController::class, 'destinations'], ['auth']);
+$router->get('/admin/paginas', [AdminController::class, 'pages'], ['auth']);
+$router->get('/admin/banners', [AdminController::class, 'banners'], ['auth']);
 $router->get('/admin/media', [MediaController::class, 'index'], ['auth']);
 $router->get('/admin/media/upload', [MediaController::class, 'create'], ['auth']);
 $router->post('/admin/media/upload', [MediaController::class, 'store'], ['auth']);
-$router->post('/admin/media/delete', [MediaController::class, 'delete'], ['auth']);
-$router->get('/admin/paginas', [AdminController::class, 'pages'], ['auth']);
-$router->get('/admin/banners', [AdminController::class, 'banners'], ['auth']);
-$router->get('/admin/definicoes', [AdminController::class, 'settings'], ['auth']);
-$router->post('/admin/definicoes', [AdminController::class, 'updateSettings'], ['auth']);
+
+// Restricted operations requiring role:admin (admin or superadmin)
+$router->post('/admin/media/delete', [MediaController::class, 'delete'], ['auth', 'role:admin']);
+$router->get('/admin/pedidos/exportar-csv', [AdminController::class, 'exportCsv'], ['auth', 'role:admin']);
+$router->get('/admin/definicoes', [AdminController::class, 'settings'], ['auth', 'role:admin']);
+$router->post('/admin/definicoes', [AdminController::class, 'updateSettings'], ['auth', 'role:admin']);
+$router->get('/admin/utilizadores', [AdminController::class, 'users'], ['auth', 'role:admin']);
+$router->post('/admin/utilizadores', [AdminController::class, 'createUser'], ['auth', 'role:admin']);
+$router->post('/admin/utilizadores/{id}/estado', [AdminController::class, 'updateUserStatus'], ['auth', 'role:admin']);

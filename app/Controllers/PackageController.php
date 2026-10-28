@@ -48,10 +48,7 @@ class PackageController extends Controller
         $package = $packageModel->findBySlug($slug);
 
         if (!$package) {
-            return $this->render('errors/404', [
-                'pageTitle' => 'Pacote Não Encontrado',
-                'path'      => "/pacotes/{$slug}",
-            ]);
+            return $this->notFound("/pacotes/{$slug}");
         }
 
         // Related packages

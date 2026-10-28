@@ -1,3 +1,18 @@
+# Zebra Tours Moçambique - Public .htaccess
+Options -Indexes
+
+# Bloquear ficheiros ocultos (dotfiles) com exceção de .well-known (para renovação de certificados SSL)
+<FilesMatch "^\.(?!well-known)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Encaminhamento Front-Controller para index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-f

@@ -3,11 +3,9 @@
 -- Dados institucionais, destinos, pacotes turísticos e definições
 -- ========================================================
 
--- 1. Utilizador Administrador Inicial
--- Palavra-passe predefinida para teste local: ZebraAdmin2026!
--- Hash gerado com bcrypt (compatível com PHP password_hash e Node bcrypt/crypto)
+-- 1. Utilizador Administrador Inicial (Inativo por omissão; configurar via CLI php bin/admin-password.php)
 INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status) VALUES
-(1, 'Administrador Zebra Tours', 'admin@zebratours.co.mz', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'superadmin', 'ativo');
+(1, 'Administrador Zebra Tours', 'admin@zebratours.co.mz', '!', 'superadmin', 'inativo');
 
 -- 2. Definições Globais da Empresa
 INSERT OR REPLACE INTO settings (setting_key, setting_value, description) VALUES

@@ -21,7 +21,7 @@ class Request
         $this->files = $_FILES;
 
         $contentType = $this->server('CONTENT_TYPE', '');
-        if (str_contains($contentType, 'application/json')) {
+        if (is_string($contentType) && str_contains($contentType, 'application/json')) {
             $raw = file_get_contents('php://input');
             $decoded = json_decode($raw, true);
             if (is_array($decoded)) {
@@ -32,12 +32,12 @@ class Request
 
     public function getMethod(): string
     {
-        return strtoupper($this->server('REQUEST_METHOD', 'GET'));
+        return strtoupper((string) $this->server('REQUEST_METHOD', 'GET'));
     }
 
     public function getPath(): string
     {
-        $uri = $this->server('REQUEST_URI', '/');
+        $uri = (string) $this->server('REQUEST_URI', '/');
         $position = strpos($uri, '?');
         if ($position !== false) {
             $uri = substr($uri, 0, $position);
@@ -47,15 +47,63 @@ class Request
 
     public function get(string $key, mixed $default = null): mixed
     {
-        return $this->getParams[$key] ?? $default;
+        if (!array_key_exists($key, $this->getParams)) {
+            return $default;
+        }
+        $val = $this->getParams[$key];
+        // If default is string and value is array (e.g. ?search[]=x), prevent TypeError by returning default
+        if (is_string($default) && is_array($val)) {
+            return $default;
+        }
+        return $val;
+    }
+
+    public function getString(string $key, string $default = ''): string
+    {
+        $val = $this->get($key, $default);
+        if (is_array($val)) {
+            return $default;
+        }
+        return trim((string) $val);
+    }
+
+    public function getInt(string $key, int $default = 0): int
+    {
+        $val = $this->get($key, $default);
+        if (is_array($val) || !is_numeric($val)) {
+            return $default;
+        }
+        return (int) $val;
     }
 
     public function post(string $key, mixed $default = null): mixed
     {
         if ($this->jsonBody !== null && array_key_exists($key, $this->jsonBody)) {
-            return $this->jsonBody[$key];
+            $val = $this->jsonBody[$key];
+            if (is_string($default) && is_array($val)) {
+                return $default;
+            }
+            return $val;
         }
-        return $this->postParams[$key] ?? $default;
+
+        if (!array_key_exists($key, $this->postParams)) {
+            return $default;
+        }
+
+        $val = $this->postParams[$key];
+        if (is_string($default) && is_array($val)) {
+            return $default;
+        }
+        return $val;
+    }
+
+    public function postString(string $key, string $default = ''): string
+    {
+        $val = $this->post($key, $default);
+        if (is_array($val)) {
+            return $default;
+        }
+        return trim((string) $val);
     }
 
     public function all(): array
@@ -76,19 +124,27 @@ class Request
         return $this->serverParams[$key] ?? $default;
     }
 
+    public function header(string $name, ?string $default = null): ?string
+    {
+        $formatted = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        if (isset($this->serverParams[$formatted])) {
+            return (string) $this->serverParams[$formatted];
+        }
+        if (isset($this->serverParams[strtoupper(str_replace('-', '_', $name))])) {
+            return (string) $this->serverParams[strtoupper(str_replace('-', '_', $name))];
+        }
+        return $default;
+    }
+
     public function isPost(): bool
     {
         return $this->getMethod() === 'POST';
     }
 
-    public function isGet(): bool
-    {
-        return $this->getMethod() === 'GET';
-    }
-
     public function isAjax(): bool
     {
-        return $this->server('HTTP_X_REQUESTED_WITH') === 'XMLHttpRequest' ||
-               str_contains($this->server('HTTP_ACCEPT', ''), 'application/json');
+        $requestedWith = $this->header('X-Requested-With', '');
+        $accept = (string) $this->server('HTTP_ACCEPT', '');
+        return strtolower($requestedWith ?? '') === 'xmlhttprequest' || str_contains($accept, 'application/json');
     }
 }

@@ -21,13 +21,12 @@
 
         <div>
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Institucional</label>
-            <input type="email" name="email" required value="admin@zebratours.co.mz" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-gold focus:border-gold outline-none">
+            <input type="email" name="email" required autocomplete="username" placeholder="nome@zebratours.co.mz" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-gold focus:border-gold outline-none">
         </div>
 
         <div>
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Palavra-passe</label>
-            <input type="password" name="password" required value="ZebraAdmin2026!" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-gold focus:border-gold outline-none">
-            <span class="text-[10px] text-slate-500 block mt-1.5">Padrão de desenvolvimento: ZebraAdmin2026!</span>
+            <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-gold focus:border-gold outline-none">
         </div>
 
         <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold to-gold-dark text-slate-950 font-bold uppercase text-xs tracking-wider shadow-lg hover:brightness-110 active:scale-95 transition">

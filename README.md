@@ -89,9 +89,13 @@ php -S localhost:8000 -t public
 ---
 
 ## 5. Acesso Administrativo e Credenciais
-- **URL de Acesso:** Clique em **"Área de Gestão"** no cabeçalho superior do website ou aceda à interface administrativa.
-- **Email do Administrador:** `admin@zebratours.co.mz`
-- **Palavra-passe Inicial:** `ZebraAdmin2026!`
+- **URL de Acesso:** Clique em **"Área de Gestão"** no cabeçalho superior do website ou aceda a `/admin/login`.
+- **Criação / Configuração de Credenciais:**
+  Por segurança rigorosa, nenhuma credencial padrão ou palavra-passe mestra é fornecida. O administrador deve definir ou atualizar a sua palavra-passe via CLI segura:
+  ```bash
+  php bin/admin-password.php admin@zebratours.co.mz --name="Administrador" --role=superadmin
+  ```
+  *(Exige no mínimo 12 carateres e rejeita palavras-passe fracas)*.
 - **Capacidades do Painel:**
   - Métricas e dashboard em tempo real.
   - Gestão de pedidos de cotação: alteração de estado (*Pendente*, *Em análise*, *Contactado*, *Confirmado*, *Cancelado*) e adição de **notas internas confidenciais** visíveis apenas para os consultores.

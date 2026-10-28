@@ -99,10 +99,7 @@ class ServiceController extends Controller
         $service = $this->services[$slug] ?? null;
 
         if (!$service) {
-            return $this->render('errors/404', [
-                'pageTitle' => 'Serviço Não Encontrado',
-                'path'      => "/servicos/{$slug}",
-            ]);
+            return $this->notFound("/servicos/{$slug}");
         }
 
         return $this->render('services/show', [

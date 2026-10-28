@@ -5,7 +5,7 @@ namespace App\Core;
 
 abstract class Controller
 {
-    protected function render(string $view, array $data = [], ?string $layout = 'layouts/main'): Response
+    protected function render(string $view, array $data = [], ?string $layout = 'layouts/main', int $status = 200): Response
     {
         // Inject global settings into every view
         $db = Database::getConnection();
@@ -22,7 +22,7 @@ abstract class Controller
         $data['currentUser'] = Auth::user();
 
         $html = View::render($view, $data, $layout);
-        return Response::html($html);
+        return Response::html($html, $status);
     }
 
     protected function json(mixed $data, int $status = 200): Response
@@ -35,9 +35,17 @@ abstract class Controller
         return Response::redirect($url);
     }
 
+    protected function notFound(string $path = ''): Response
+    {
+        return $this->render('errors/404', [
+            'pageTitle' => 'Página Não Encontrada | Zebra Tours',
+            'path'      => $path,
+        ], 'layouts/main', 404);
+    }
+
     protected function validateCsrf(Request $request): bool
     {
-        $token = $request->post('_csrf');
-        return Session::validateCsrfToken($token);
+        $token = $request->post('_csrf') ?: $request->header('X-CSRF-Token');
+        return Session::validateCsrfToken($token ? (string) $token : null);
     }
 }

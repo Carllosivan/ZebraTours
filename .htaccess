@@ -1,0 +1,29 @@
+# Zebra Tours Moçambique - Root .htaccess
+# Protege pastas de código-fonte e base de dados contra acesso direto
+
+Options -Indexes
+
+# Bloquear acesso a pastas críticas da aplicação
+<IfModule mod_authz_core.c>
+    <DirectoryMatch "^.*/(app|database|routes|bin|tests|\.git)/.*$">
+        Require all denied
+    </DirectoryMatch>
+</IfModule>
+
+# Bloquear ficheiros sensíveis de configuração e base de dados
+<FilesMatch "(?i)\.(env.*|sql|db|sqlite|sqlite3|json|lock|ts|sh|md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Encaminhar pedidos à raiz para a pasta public/
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

@@ -35,6 +35,22 @@ class Response
         return new self('', $status, ['Location' => $url]);
     }
 
+    public function setHeader(string $name, string $value): self
+    {
+        $this->headers[$name] = $value;
+        return $this;
+    }
+
+    public function getHeaders(): array
+    {
+        return $this->headers;
+    }
+
+    public function getStatusCode(): int
+    {
+        return $this->statusCode;
+    }
+
     public function send(): void
     {
         if (!headers_sent()) {

@@ -20,10 +20,7 @@ class PageController extends Controller
         $page = $stmt->fetch();
 
         if (!$page) {
-            return $this->render('errors/404', [
-                'pageTitle' => 'Página Não Encontrada',
-                'path'      => "/pagina/{$slug}",
-            ]);
+            return $this->notFound("/pagina/{$slug}");
         }
 
         return $this->render('pages/show', [

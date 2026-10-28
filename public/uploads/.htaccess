@@ -1,0 +1,33 @@
+# Zebra Tours - Proteção de Diretoria de Uploads
+# Desativa qualquer execução de scripts nesta diretoria e subdiretorias
+
+# Impedir listagem de diretorias
+Options -Indexes -ExecCGI
+
+# Desativar motor PHP se embutido via módulo Apache
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# Forçar tratamento de ficheiros como dados estáticos
+<IfModule mod_mime.c>
+    RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
+    RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
+</IfModule>
+
+# Bloquear acesso direto a ficheiros executáveis ou scripts
+<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|php8|phps|pl|py|jsp|asp|sh|cgi|exe|bat)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>

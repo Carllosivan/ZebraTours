@@ -30,9 +30,13 @@ class Destination
         return $this->db->query($sql)->fetchAll();
     }
 
-    public function findBySlug(string $slug): ?array
+    public function findBySlug(string $slug, bool $onlyPublic = true): ?array
     {
-        $stmt = $this->db->prepare("SELECT * FROM destinations WHERE slug = ?");
+        $sql = "SELECT * FROM destinations WHERE slug = ?";
+        if ($onlyPublic) {
+            $sql .= " AND status = 'publicado'";
+        }
+        $stmt = $this->db->prepare($sql);
         $stmt->execute([$slug]);
         $dest = $stmt->fetch();
         if (!$dest) {

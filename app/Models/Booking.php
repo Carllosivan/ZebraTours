@@ -5,14 +5,24 @@ namespace App\Models;
 
 use App\Core\Database;
 use PDO;
+use PDOException;
+use RuntimeException;
 
 class Booking
 {
     private PDO $db;
 
-    public function __construct()
+    public const ALLOWED_STATUSES = [
+        'Pendente',
+        'Em Análise',
+        'Cotado',
+        'Confirmado',
+        'Cancelado',
+    ];
+
+    public function __construct(?PDO $db = null)
     {
-        $this->db = Database::getConnection();
+        $this->db = $db ?? Database::getConnection();
     }
 
     public static function generateReferenceCode(): string
@@ -28,7 +38,28 @@ class Booking
 
     public function create(array $data): string
     {
-        $ref = self::generateReferenceCode();
+        $packageId = null;
+        if (!empty($data['package_id']) && is_numeric($data['package_id'])) {
+            $checkStmt = $this->db->prepare("
+                SELECT id FROM packages
+                WHERE id = ? AND status IN ('publicado', 'pendente_validacao')
+            ");
+            $checkStmt->execute([(int) $data['package_id']]);
+            if ($checkStmt->fetch()) {
+                $packageId = (int) $data['package_id'];
+            }
+        }
+
+        $cleanPhone = preg_replace('/[^\d+]/', '', (string) ($data['customer_phone'] ?? ''));
+        $countryCode = trim((string) ($data['phone_country_code'] ?? '+258'));
+        $name = trim((string) ($data['customer_name'] ?? ''));
+        $email = !empty($data['customer_email']) ? trim((string) $data['customer_email']) : null;
+        $service = trim((string) ($data['service_type'] ?? 'Pacote Turístico Completo'));
+        $dest = !empty($data['destination']) ? trim((string) $data['destination']) : null;
+        $dates = !empty($data['preferred_dates']) ? trim((string) $data['preferred_dates']) : null;
+        $travelers = max(1, min(50, (int) ($data['travelers_count'] ?? 1)));
+        $message = !empty($data['message']) ? mb_substr(trim((string) $data['message']), 0, 2000) : null;
+
         $stmt = $this->db->prepare("
             INSERT INTO booking_requests (
                 reference_code, package_id, customer_name, customer_email,
@@ -36,21 +67,99 @@ class Booking
                 preferred_dates, travelers_count, message, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendente')
         ");
-        $stmt->execute([
-            $ref,
-            !empty($data['package_id']) ? (int) $data['package_id'] : null,
-            trim($data['customer_name']),
-            !empty($data['customer_email']) ? trim($data['customer_email']) : null,
-            trim($data['customer_phone']),
-            $data['phone_country_code'] ?? '+258',
-            trim($data['service_type']),
-            !empty($data['destination']) ? trim($data['destination']) : null,
-            !empty($data['preferred_dates']) ? trim($data['preferred_dates']) : null,
-            max(1, (int) ($data['travelers_count'] ?? 1)),
-            !empty($data['message']) ? trim($data['message']) : null,
-        ]);
 
-        return $ref;
+        // Retry loop to handle rare UNIQUE reference_code collision
+        $maxAttempts = 10;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $ref = self::generateReferenceCode();
+            try {
+                $stmt->execute([
+                    $ref,
+                    $packageId,
+                    $name,
+                    $email,
+                    $cleanPhone,
+                    $countryCode,
+                    $service,
+                    $dest,
+                    $dates,
+                    $travelers,
+                    $message,
+                ]);
+
+                // Create initial entry in booking_history
+                $bookingId = (int) $this->db->lastInsertId();
+                $histStmt = $this->db->prepare("
+                    INSERT INTO booking_history (booking_id, author_name, action, notes, old_status, new_status)
+                    VALUES (?, 'Sistema Online', 'REGISTO_INICIAL', 'Pedido de cotação submetido online pelo cliente', NULL, 'Pendente')
+                ");
+                $histStmt->execute([$bookingId]);
+
+                return $ref;
+            } catch (PDOException $e) {
+                // If unique constraint violated on reference_code, retry
+                if (str_contains($e->getMessage(), 'UNIQUE') || $e->getCode() === '23000') {
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        throw new RuntimeException("Não foi possível gerar um código de referência único após {$maxAttempts} tentativas.");
+    }
+
+    public function updateStatus(int $id, string $status, ?string $notes = null, string $author = 'Administrador'): bool
+    {
+        $normalizedStatus = null;
+        foreach (self::ALLOWED_STATUSES as $s) {
+            if (strcasecmp($s, trim($status)) === 0) {
+                $normalizedStatus = $s;
+                break;
+            }
+        }
+
+        if (!$normalizedStatus) {
+            throw new RuntimeException("Estado inválido fornecido: {$status}");
+        }
+
+        $current = $this->findById($id);
+        if (!$current) {
+            return false;
+        }
+
+        $oldStatus = $current['status'];
+
+        $stmt = $this->db->prepare("
+            UPDATE booking_requests
+            SET status = ?,
+                admin_notes = COALESCE(?, admin_notes),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ");
+        $stmt->execute([$normalizedStatus, $notes, $id]);
+
+        $histStmt = $this->db->prepare("
+            INSERT INTO booking_history (booking_id, author_name, action, notes, old_status, new_status)
+            VALUES (?, ?, 'ALTERACAO_ESTADO', ?, ?, ?)
+        ");
+        $histStmt->execute([$id, $author, $notes, $oldStatus, $normalizedStatus]);
+
+        return true;
+    }
+
+    public function addNote(int $id, string $note, string $author = 'Administrador'): bool
+    {
+        $histStmt = $this->db->prepare("
+            INSERT INTO booking_history (booking_id, author_name, action, notes, old_status, new_status)
+            VALUES (?, ?, 'NOTA_INTERNA', ?, NULL, NULL)
+        ");
+        return $histStmt->execute([$id, $author, trim($note)]);
+    }
+
+    public function deleteNote(int $noteId): bool
+    {
+        $stmt = $this->db->prepare("DELETE FROM booking_history WHERE id = ? AND action = 'NOTA_INTERNA'");
+        return $stmt->execute([$noteId]);
     }
 
     public function getAll(?string $status = null, ?string $search = null): array
@@ -63,7 +172,7 @@ class Booking
         ";
         $params = [];
         if ($status && $status !== 'all') {
-            $sql .= " AND b.status = ?";
+            $sql .= " AND LOWER(b.status) = LOWER(?)";
             $params[] = $status;
         }
         if ($search) {
@@ -99,13 +208,11 @@ class Booking
         return $booking;
     }
 
-    public function updateStatus(int $id, string $status, ?string $adminNotes = null): bool
+    public function findByRef(string $ref): ?array
     {
-        $stmt = $this->db->prepare("
-            UPDATE booking_requests 
-            SET status = ?, admin_notes = COALESCE(?, admin_notes), updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ");
-        return $stmt->execute([$status, $adminNotes, $id]);
+        $stmt = $this->db->prepare("SELECT * FROM booking_requests WHERE reference_code = ?");
+        $stmt->execute([trim($ref)]);
+        $row = $stmt->fetch();
+        return $row ?: null;
     }
 }

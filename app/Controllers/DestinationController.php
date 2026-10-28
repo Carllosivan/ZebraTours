@@ -29,10 +29,7 @@ class DestinationController extends Controller
         $destination = $destinationModel->findBySlug($slug);
 
         if (!$destination) {
-            return $this->render('errors/404', [
-                'pageTitle' => 'Destino Não Encontrado',
-                'path'      => "/destinos/{$slug}",
-            ]);
+            return $this->notFound("/destinos/{$slug}");
         }
 
         return $this->render('destinations/show', [
